@@ -1,15 +1,65 @@
 {% extends 'base.html' %}
-<!--{% load static %}-->
-<!--<link rel="stylesheet" type="text/css" href="{% static 'bootstrap.min.css' %}">-->
+{% load stockpredapp_filter %}
 {% block content %}
 {% load static %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<style>
+.loader {
+  border: 16px solid #f3f3f3; /* Light grey */
+  border-top: 16px solid #3498db; /* Blue */
+  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+  animation: spin 2s linear infinite;
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+</style>
+<div class="loader"></div>
+<script>
+    $(window).load(function(){
+        $('.loader').delay(300).fadeOut();
+        });
+</script>
+
+
 <link rel="stylesheet" type="'text/css" href="{% static 'bootstrap.min.css' %}">
 <div class="container my-3">
+    <div class="row justify-content-end my-3">
+        <div class="col-4 input-group">
+            <input type="text" class="form-control kw1 me-sm-2" value="{{ kw1|default_if_none:'' }}">
+            <div class="input-group-append">
+                <button class="btn btn-secondary my-2 my-sm-0" type="button" id="btn_search1">종목 검색</button>
+
+            </div>
+            <a class="page-link" href="{% url 'stockpredapp:random_pred' %}">랜덤 분석</a>
+        </div>
+    </div>
+    <MARQUEE class="text-info"><em>
+        종목이름, 종목코드, 상장구분으로 검색 가능합니다. 상장 구분은
+        <a href="https://ko.wikipedia.org/wiki/%EC%BD%94%EC%8A%A4%ED%94%BC">KOSPI</a>,
+        <a href="https://ko.wikipedia.org/wiki/%EC%BD%94%EC%8A%A4%EB%8B%A5">KODAQ</a>,
+        <a href="https://ko.wikipedia.org/wiki/%EB%82%98%EC%8A%A4%EB%8B%A5">NASDAQ</a>,
+        <a href="https://ko.wikipedia.org/wiki/S%26P_500">S&P500</a>,
+        <a href="https://ko.wikipedia.org/wiki/%EB%89%B4%EC%9A%95_%EC%A6%9D%EA%B6%8C%EA%B1%B0%EB%9E%98%EC%86%8C">NYSE</a>,
+        <a href="https://ko.wikipedia.org/wiki/%EC%95%84%EB%A9%94%EB%A6%AC%EC%B9%B4_%EC%A6%9D%EA%B6%8C%EA%B1%B0%EB%9E%98%EC%86%8C">AMEX</a>
+        으로 구분되어있습니다.
+    </em></MARQUEE>
+
     <table class="table">
         <thead>
-        <tr class="thead-dark">
+        <tr class="table-secondary">
+            <th>번호</th>
             <th>종목명</th>
             <th>종목코드</th>
+            <th>상장구분</th>
             <th>사업분야</th>
             <th>홈페이지</th>
         </tr>
@@ -17,14 +67,18 @@
         <tbody>
         {% if stock_list %}
         {% for stock in stock_list %}
-        <tr>
-
+        <tr class>
             <td>
-                <a href="{% url 'stockpredapp:result' stock.id %}">{{ stock.stock_name }}</a>
+                <!-- 번호 = 전체건수 - 시작인덱스 - 현재인덱스 + 1 -->
+                {{ stock_list.paginator.count|sub:stock_list.start_index|sub:forloop.counter0|add:1 }}
             </td>
             <td>
-                <a href="{% url 'stockpredapp:result' stock.id %}">{{ stock.stock_code }}</a>
+                <a href="{% url 'stockpredapp:loading' stock.id %}">{{ stock.stock_name }}</a>
             </td>
+            <td>
+                <a href="{% url 'stockpredapp:loading' stock.id %}">{{ stock.stock_code }}</a>
+            </td>
+            <td>{{ stock.market }}</td>
             <td>{{ stock.sector }} / {{ stock.industry}}</td>
             <td>
                 <a href="{{ stock.homepage }}">{{ stock.homepage }}</a>
@@ -32,8 +86,8 @@
         </tr>
         {% endfor %}
         {% else %}
-        <tr>
-            <td colspan="3">종목이 없습니다.</td>
+        <tr class ="text-center">
+            <td colspan="7">종목이 없습니다.</td>
         </tr>
         {% endif %}
         </tbody>
@@ -43,11 +97,11 @@
         <!--이전 페이지-->
         {% if stock_list.has_previous %}
         <li class="page-item">
-            <a class="'page-ling" href="?page={{ stock_list.previous_page_number }}">이전</a>
+            <a class="page-link" data-page1="{{ stock_list.previous_page_number }}" href="#">이전</a>
         </li>
         {% else %}
         <li class="page-item disabled">
-            <a class="page-link" tabindex="-1" aria-disabled="true" href="#">이전</a>
+             <a class="page-link" tabindex="-1" aria-disabled="true" href="#">이전</a>
         </li>
         {% endif %}
         <!--페이지 리스트-->
@@ -55,11 +109,11 @@
         {% if page_number >= stock_list.number|add:-5 and page_number <= stock_list.number|add:5 %}
             {% if page_number == stock_list.number %}
             <li class="page-item active" aria-current="page">
-                <a class="page-link" href="?page={{ page_number }}">{{ page_number }}</a>
+                <a class="page-link" data-page1="{{ page_number }}" href="#">{{ page_number }}</a>
             </li>
             {% else %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_number }}">{{ page_number }}</a>
+                <a class="page-link" data-page1="{{ page_number }}" href="#">{{ page_number }}</a>
             </li>
             {% endif %}
         {% endif %}
@@ -67,7 +121,7 @@
         <!--다음페이지-->
         {% if stock_list.has_next %}
         <li class="page-item">
-            <a class="page-link" href="?page={{ stock_list.next_page_number }}">다음</a>
+            <a class="page-link" data-page1="{{ stock_list.next_page_number }}" href="#">다음</a>
         </li>
         {% else %}
         <li class="page-item disabled">
@@ -77,6 +131,26 @@
     </ul>
     <!--페이징 처리 끝-->
 </div>
+<form id="searchForm1" method="get" action="{% url 'stockpredapp:s_index' %}">
+    <input type="hidden" id="kw1" name="kw1" value="{{ kw1|default_if_none:'' }}">
+    <input type="hidden" id="page1" name="page1" value="{{ page1 }}">
+</form>
+{% endblock %}
+{% block script %}
+<script type='text/javascript'>
+$(document).ready(function(){
+    $(".page-link").on('click', function() {
+        $("#page1").val($(this).data("page1"));
+        $("#searchForm1").submit();
+    });
+
+    $("#btn_search1").on('click', function() {
+        $("#kw1").val($(".kw1").val());
+        $("#page1").val(1);  // 검색버튼을 클릭할 경우 1페이지부터 조회한다.
+        $("#searchForm1").submit();
+    });
+});
+</script>
 {% endblock %}
 
 <!--{% if stock_list %}-->
